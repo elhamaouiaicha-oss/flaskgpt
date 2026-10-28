@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FlaskGPT — Assistant IA</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='dist/css/style.css') }}">
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css">
+
+    <script defer src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+    <script defer src="{{ url_for('static', filename='dist/js/script.js') }}"></script>
+</head>
+
+<body class="bg-slate-50 text-slate-800">
+    <main class="mx-auto flex min-h-screen max-w-4xl flex-col px-4 py-8">
+        <header class="mb-6">
+            <h1 class="text-2xl font-bold tracking-tight">FlaskGPT</h1>
+            <p class="mt-1 text-sm text-slate-500">
+                Your intelligent assistant.
+            </p>
+        </header>
+
+        <!-- Barre d'outils : discussions, vider, exporter, supprimer -->
+        <section aria-label="Discussions"
+                 class="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
+            <label for="conversation-select" class="sr-only">Discussion</label>
+            <select id="conversation-select"
+                    class="min-w-0 flex-1 basis-48 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:opacity-50">
+            </select>
+
+            <button id="new-chat" type="button"
+                    class="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                + Nouvelle
+            </button>
+
+            <button id="clear-chat" type="button"
+                    class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">
+                Vider
+            </button>
+
+            <details id="export-menu" class="relative">
+                <summary class="cursor-pointer list-none rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100">
+                    Exporter ▾
+                </summary>
+                <div class="absolute right-0 z-10 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-1 text-sm shadow-lg">
+                    <a id="export-current-md" href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Cette discussion (.md)</a>
+                    <a id="export-current-json" href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Cette discussion (.json)</a>
+                    <a id="export-all-md" href="/api/export?format=md" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Toutes les discussions (.md)</a>
+                    <a id="export-all-json" href="/api/export?format=json" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Toutes les discussions (.json)</a>
+                </div>
+            </details>
+
+            <button id="delete-chat" type="button"
+                    class="rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">
+                Supprimer
+            </button>
+        </section>
+
+        <!-- Modèle d'un message : cloné par script.js pour chaque message -->
+        <div id="chat-template" class="hidden mb-4 rounded-2xl border p-5 shadow-xs transition-colors">
+            <div class="author mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400"></div>
+            <div class="attachment mb-2 inline-block max-w-full truncate rounded-lg bg-white/70 px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-200" hidden></div>
+            <div class="message leading-relaxed break-words"></div>
+            <div class="actions mt-3 flex items-center gap-2 border-t border-slate-200 pt-3" hidden>
+                <span class="text-xs text-slate-500">Cette réponse est-elle utile ?</span>
+                <button type="button" data-rating="1" aria-pressed="false" aria-label="Réponse utile" title="Utile"
+                        class="rate-btn rounded-lg border px-2.5 py-1 text-sm">👍</button>
+                <button type="button" data-rating="-1" aria-pressed="false" aria-label="Réponse pas utile" title="Pas utile"
+                        class="rate-btn rounded-lg border px-2.5 py-1 text-sm">👎</button>
+            </div>
+        </div>
+
+        <p id="empty-state" class="mb-4 rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500" hidden>
+            Pose une question, ou importe un fichier (📎) pour le résumer ou l'interroger.
+        </p>
+
+        <div id="gpt-output" class="flex-1" aria-live="polite"></div>
+
+        <form id="prompt-form"
+              class="sticky bottom-0 mt-6 bg-slate-50 py-4">
+            <p id="status" role="status" class="mb-2 text-sm" hidden></p>
+
+            <div id="file-chip" class="mb-2 inline-flex max-w-full items-center gap-2 rounded-lg bg-indigo-50 px-3 py-1 text-sm text-indigo-700" hidden>
+                <span aria-hidden="true">📎</span>
+                <span id="file-name" class="truncate"></span>
+                <button id="file-remove" type="button" aria-label="Retirer le fichier"
+                        class="rounded px-1 hover:bg-indigo-100">✕</button>
+            </div>
+
+            <div class="flex gap-3">
+                <input id="file-input" type="file" hidden
+                       accept=".txt,.md,.csv,.json,.log,.xml,.yml,.yaml,.py,.js,.html,.css,.sql,.pdf,.docx">
+
+                <button id="attach" type="button" aria-label="Importer un fichier" title="Importer un fichier"
+                        class="rounded-xl border border-slate-300 bg-white px-3 py-3 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">
+                    📎
+                </button>
+
+                <label for="prompt" class="sr-only">Your message</label>
+                <input id="prompt" name="prompt" type="text" autocomplete="off"
+                       placeholder="Ask your question…"
+                       class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+
+                <button id="send" type="submit"
+                        class="rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-50">
+                    Send
+                </button>
+            </div>
+        </form>
+    </main>
+</body>
+</html>

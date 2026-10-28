@@ -1,0 +1,17 @@
+{
+  "name": "devdep",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "lightningcss-win32-x64-msvc": "^1.33.0",
+    "tailwindcss": "^4.3.3"
+  }
+}

@@ -1,0 +1,8 @@
+@'
+.env
+.venv/
+node_modules/
+__pycache__/
+chat.db
+templatesindex.html
+'@ | Set-Content -Encoding utf8 .gitignore
